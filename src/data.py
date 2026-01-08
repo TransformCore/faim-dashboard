@@ -1,13 +1,16 @@
 """
 Module for loading and processing combined data from a parquet file.
 """
+import os
 from pathlib import Path
 from functools import cache
 
 import polars as pl
 
 
-DATA_PATH = Path().resolve() / 'data' / 'combined_data.parquet'
+DEFAULT_LOCAL_PATH = Path().resolve() / 'data'
+DATA_DIR = os.getenv('DATA_DIR', DEFAULT_LOCAL_PATH)
+DATA_PATH = DATA_DIR / 'combined_data.parquet'
 
 
 def get_df() -> pl.DataFrame:
