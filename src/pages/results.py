@@ -3,7 +3,7 @@ Results page layout with sub-tabs for exposure analysis.
 """
 from dash import html, dcc, Input, Output, callback
 
-from .results_panes import exposure_results, graph_p975_exposure, graph_average_exposure, exposure_summary
+from .panes import exposure_results, graph_p975_exposure, graph_average_exposure, exposure_summary
 
 __all__ = ['layout']
 
@@ -29,7 +29,7 @@ tabs = {
 }
 
 
-def layout():
+def layout(session_data: list[dict]) -> html.Div:
     return html.Div([
         dcc.Tabs(id="results-sub-tabs", value="exposure-summary", children=[
             dcc.Tab(label=data['title'], value=value) for value, data in tabs.items()
@@ -41,13 +41,13 @@ def layout():
 @callback(
     Output("sub-tab-content", "children"),
     Input("results-sub-tabs", "value"),
-    Input("session-input-data", "data")  # The global store
+    Input("session-input-data", "data")
 )
-def render_sub_tab(tab, data):
-    if not data:
+def render_sub_tab(tab, session_data: list[dict]) -> html.Div:
+    if not session_data:
         raise ValueError('Data is required')
 
     if tab not in tabs.keys():
         raise ValueError('Tab not found')
 
-    return tabs[tab]['action']()
+    return tabs[tab]['action'].layout(session_data)
