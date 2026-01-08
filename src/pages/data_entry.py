@@ -26,8 +26,13 @@ def layout(session_data: list[dict] = None) -> html.Div:
             html.Div(
                 [
                     html.Button("Reset", id="btn-reset"),
-                    html.Button("Import input", id="btn-import"),
-                    dcc.Upload('Upload a JSON file', id='import-inputs'),
+                    dcc.Upload(
+                        [
+                            html.Button("Import input", id="btn-import"),
+                            'Upload a JSON file'
+                        ]
+                        ,id='import-inputs'
+                    ),
                     html.Button("Export input", id="btn-export"),
                     dcc.Download(id='export-inputs', type='text/json'),
                     html.Button(
