@@ -10,17 +10,18 @@ import polars as pl
 DATA_PATH = Path().resolve() / 'data' / 'combined_data.parquet'
 
 
-@cache
 def get_df() -> pl.DataFrame:
     """Loads the combined data from the parquet file."""
     df = pl.read_parquet(DATA_PATH)
     return df
 
 
+@cache
 def get_categories_table() -> pl.DataFrame:
     """Get the initial categories table with group codes and names."""
     df = get_df()
 
+    # Get unique group codes and names, filtering and sorting them appropriately
     df_categories = (
         df
         .select(['Group Code', 'Group Name'])
@@ -37,10 +38,10 @@ def get_categories_table() -> pl.DataFrame:
         .drop("_sort_key")
     )
 
-    # The initial values for the input table
+    # Add initial values for the input table
     df_init = df_categories.with_columns([
-        pl.lit(None).alias('Use level (mg/kg)'),
-        pl.lit(False).alias('Consumers of')
+        pl.lit(None, dtype=pl.Float32).alias('Use level (mg/kg)'),
+        pl.lit(False, dtype=pl.Boolean).alias('Consumers of')
     ])
 
     return df_init
