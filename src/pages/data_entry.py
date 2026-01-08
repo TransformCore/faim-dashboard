@@ -4,15 +4,17 @@ Data entry page
 import base64
 import json
 
-from dash import html, dcc, dash_table, exceptions, callback, callback_context, Input, Output, State
+from dash import html, dcc, dash_table, exceptions, callback, Input, Output, State
 
 from data import get_categories_table
 
 __all__ = ['layout']
 
 
-def layout() -> html.Div:
+def layout(session_data: list[dict] = None) -> html.Div:
     """Data entry page layout."""
+    table_data = session_data_to_table_data(session_data)
+
     return html.Div(
         [
             html.P(
@@ -38,7 +40,7 @@ def layout() -> html.Div:
 
             dash_table.DataTable(
                 id="input-table",
-                data=get_categories_table().to_dicts(),
+                data=table_data,
                 editable=True,
                 row_deletable=False,
                 style_cell={
@@ -92,36 +94,11 @@ def layout() -> html.Div:
 
 
 @callback(
-    Output("btn-calculate", "disabled"),
-    Output("input-table", "data"),
+    Output("btn-calculate", "disabled", allow_duplicate=True),
+    Output("input-table", "data", allow_duplicate=True),
     Input("input-table", "data"),
-    Input("btn-reset", "n_clicks"),
-    Input("session-input-data", "data"),
-    prevent_initial_call=True,
+    prevent_initial_call='initial_duplicate',
 )
-def validate_or_reset_table(table_data, _, session_data) -> tuple[bool, list[dict]]:
-    """Validate or reset the input table, or restore from session data."""
-    # If no trigger or triggered by page load, return current state
-    if not callback_context.triggered:
-        return True, table_data
-
-    triggered_id = callback_context.triggered[0]["prop_id"].split(".")[0]
-
-    if triggered_id == "btn-reset":
-        return clear_table()
-
-    # Restore data from session if available
-    if triggered_id == "session-input-data" and session_data is not None:
-        return restore_table_from_session(session_data)
-
-    # Only validate if triggered by table data changes
-    if triggered_id == "input-table":
-        return validate_table(table_data)
-
-    # Default case
-    return True, table_data
-
-
 def validate_table(table_data) -> tuple[bool, list[dict]]:
     # Enable "Calculate exposure" only if at least one row has Use level > 0
     enable_calculate = any(
@@ -137,37 +114,21 @@ def validate_table(table_data) -> tuple[bool, list[dict]]:
     return not enable_calculate, table_data
 
 
-def clear_table() -> tuple[bool, list[dict]]:
+@callback(
+    Output("btn-calculate", "disabled"),
+    Output("input-table", "data"),
+    Input("btn-reset", "n_clicks"),
+    prevent_initial_call=True,
+)
+def clear_table(_) -> tuple[bool, list[dict]]:
+    """Reset the input table to its initial state."""
     reset_data = get_categories_table().to_dicts()
     return True, reset_data
 
 
-def restore_table_from_session(session_data) -> tuple[bool, list[dict]]:
-    """Restore table data from session storage."""
-    try:
-        # Start with the base categories table
-        base_data = get_categories_table().to_dicts()
-
-        # Create a mapping of group codes to session data
-        session_map = {item['group_code']: item for item in session_data}
-
-        # Update base data with session values
-        for row in base_data:
-            group_code = row['Group Code']
-            if group_code in session_map:
-                session_item = session_map[group_code]
-                row['Use level (mg/kg)'] = session_item.get('use_level')
-                row['Consumers of'] = session_item.get('consumers_of', False)
-
-        # Validate the restored data
-        return validate_table(base_data)
-
-    except (KeyError, TypeError, AttributeError):
-        # If session data is malformed, return clear table
-        return clear_table()
-
-
-def get_exposure_input(table_data) -> list[dict]:
+def table_data_to_session_data(table_data: list[dict]) -> list[dict]:
+    """Convert table input data into a minified session data object."""
+    # We create a list of dicts with only the relevant fields and valid use levels
     return [
         {
             'group_code': row['Group Code'],
@@ -179,20 +140,44 @@ def get_exposure_input(table_data) -> list[dict]:
     ]
 
 
-# @callback(
-#     Output("btn-import", "n_clicks"),
-#     Input('import-inputs', 'contents'),
-#     config_prevent_initial_callbacks=True
-# )
-# def import_placeholder(contents: str):
-#     """Import input data from a JSON file"""
-#     # Placeholder for future file upload logic
-#     if contents is None:
-#         return
-#
-#     decoded = base64.b64decode(contents)
-#     data = json.loads(decoded)
-#     return 0
+def session_data_to_table_data(session_data: list[dict] = None) -> list[dict]:
+    """Convert session input data back to table data format."""
+    table_data = get_categories_table().to_dicts()
+    if not session_data:
+        return table_data
+
+    session_data_map = {item['group_code']: item for item in session_data}
+
+    for row in table_data:
+        group_code = row['Group Code']
+        if group_code in session_data_map:
+            row['Use level (mg/kg)'] = session_data_map[group_code]['use_level']
+            row['Consumers of'] = session_data_map[group_code]['consumers_of']
+        else:
+            row['Use level (mg/kg)'] = None
+            row['Consumers of'] = False
+
+    return table_data
+
+
+@callback(
+    Output('input-table', 'data', allow_duplicate=True),
+    Input('import-inputs', 'contents'),
+    config_prevent_initial_callbacks=True
+)
+def import_placeholder(contents: str):
+    """Import input data from a JSON file"""
+    # Placeholder for future file upload logic
+    if contents is None:
+        data = []
+    else:
+        content_type, content_string = contents.split(',')
+        decoded = base64.b64decode(content_string)
+        data = json.loads(decoded)
+
+    table_data = session_data_to_table_data(data)
+    return table_data
+
 
 @callback(
     Output('export-inputs', "data"),
@@ -203,9 +188,9 @@ def get_exposure_input(table_data) -> list[dict]:
 def export_placeholder(_, data):
     """Export input data to a JSON file"""
     # Placeholder for future file export logic
-    exposure_input = get_exposure_input(data)
+    exposure_input = table_data_to_session_data(data)
     return {
-        'content': json.dumps(exposure_input, indent=2),
+        'content': json.dumps(exposure_input),
         'filename': 'exposure_input.json',
     }
 
@@ -218,19 +203,20 @@ def export_placeholder(_, data):
     State("input-table", "data"),
     prevent_initial_call=True,
 )
-def calculate_exposure(n_clicks, data):
+def calculate_exposure(n_clicks, table_data):
     """Save input data to session storage and enable results tab.
 
     Args:
         n_clicks: Ignored
-        data: The user input data
+        table_data: The user input data
 
     Returns:
 
     """
+    # Only proceed if button was clicked
     if n_clicks is None:
         raise exceptions.PreventUpdate
 
-    exposure_input = get_exposure_input(data)
+    session_data = table_data_to_session_data(table_data)
 
-    return exposure_input, False, "exposure-results"
+    return session_data, False, "exposure-results"
