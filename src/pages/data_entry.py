@@ -2,6 +2,7 @@
 Data entry page
 """
 import base64
+from datetime import date
 import json
 
 from dash import html, dcc, dash_table, exceptions, callback, Input, Output, State
@@ -100,6 +101,13 @@ def layout(session_data: list[dict] = None) -> html.Div:
     prevent_initial_call='initial_duplicate',
 )
 def validate_table(table_data) -> tuple[bool, list[dict]]:
+    """Validate the input table data.
+
+    Returns:
+        tuple[bool, list[dict]]: A tuple where the first element enables/disables the
+        "Calculate exposure" button, and the second element is the validated table
+        data.
+    """
     # Enable "Calculate exposure" only if at least one row has Use level > 0
     enable_calculate = any(
         row.get("Use level (mg/kg)") is not None and row.get("Use level (mg/kg)") > 0
@@ -121,7 +129,13 @@ def validate_table(table_data) -> tuple[bool, list[dict]]:
     prevent_initial_call=True,
 )
 def clear_table(_) -> tuple[bool, list[dict]]:
-    """Reset the input table to its initial state."""
+    """Reset the input table to its initial state.
+
+    Returns:
+        A tuple where the first element disables the
+        "Calculate exposure" button, and the second element is the reset table
+        data loaded from the categories table.
+    """
     reset_data = get_categories_table().to_dicts()
     return True, reset_data
 
@@ -186,9 +200,13 @@ def import_placeholder(contents: str):
     prevent_initial_call=True,
 )
 def export_placeholder(_, data):
-    """Export input data to a JSON file"""
+    """Export input data to a JSON file.
+
+    Returns the file content and filename.
+    """
     # Placeholder for future file export logic
     exposure_input = table_data_to_session_data(data)
+    filename = f'exposure_input_{date.today().strftime('%Y-%m-%d')}.json'
     return {
         'content': json.dumps(exposure_input),
         'filename': 'exposure_input.json',
@@ -203,20 +221,21 @@ def export_placeholder(_, data):
     State("input-table", "data"),
     prevent_initial_call=True,
 )
-def calculate_exposure(n_clicks, table_data):
+def calculate_exposure(n_clicks, table_data) -> tuple[list[dict], bool, str]:
     """Save input data to session storage and enable results tab.
 
     Args:
-        n_clicks: Ignored
+        n_clicks: State of the calculate button
         table_data: The user input data
 
     Returns:
-
+        A tuple where the first element is the session data, the second element
+        enables the results tab, and the third element switches to the exposure
+        results sub-tab.
     """
     # Only proceed if button was clicked
     if n_clicks is None:
         raise exceptions.PreventUpdate
 
     session_data = table_data_to_session_data(table_data)
-
     return session_data, False, "exposure-results"
