@@ -13,24 +13,23 @@ DATA_DIR = os.getenv('DATA_DIR', DEFAULT_LOCAL_PATH)
 DATA_PATH = DATA_DIR / 'combined_data.parquet'
 
 
-def get_df() -> pl.DataFrame:
-    """Loads the combined data from the parquet file."""
-    df = pl.read_parquet(DATA_PATH)
-    return df
+def get_lf() -> pl.LazyFrame:
+    """Loads the combined data from the parquet file as a LazyFrame."""
+    return pl.scan_parquet(DATA_PATH)
 
 
 @cache
 def get_categories_table() -> pl.DataFrame:
     """Get the initial categories table with group codes and names."""
-    df = get_df()
-
-    # Get unique group codes and names, filtering and sorting them appropriately
-    df_categories = (
-        df
+    lf = (
+        get_lf()
+        # Extract relevant columns and unique entries
         .select(['Group Code', 'Group Name'])
         .unique()
         .filter(pl.col('Group Code').str.contains(r'^\d+(\.\d+)*\.?$'))  # Remove group codes that don't look like x.y.z
-        .with_columns(  # Sort lexicographically by group code
+
+        # Sort lexicographically by group code
+        .with_columns(
             pl.col("Group Code")
             .str.strip_chars(".")
             .str.split(".")
@@ -39,12 +38,12 @@ def get_categories_table() -> pl.DataFrame:
         )
         .sort("_sort_key")
         .drop("_sort_key")
+
+        # Add initial values for the input table
+        .with_columns([
+            pl.lit(None, dtype=pl.Float32).alias('Use level (mg/kg)'),
+            pl.lit(False, dtype=pl.Boolean).alias('Consumers of')
+        ])
     )
 
-    # Add initial values for the input table
-    df_init = df_categories.with_columns([
-        pl.lit(None, dtype=pl.Float32).alias('Use level (mg/kg)'),
-        pl.lit(False, dtype=pl.Boolean).alias('Consumers of')
-    ])
-
-    return df_init
+    return lf.collect()
