@@ -24,7 +24,7 @@ COPY --chown=dashuser:dashuser src .
 USER dashuser
 
 # Expose the port the app runs on
-EXPOSE 80
+EXPOSE 8050
 
 # Start the application
-CMD ["gunicorn", "app:app", "--bind=0.0.0.0:80"]
+CMD ["gunicorn", "app:app", "--bind=0.0.0.0:8050"]
