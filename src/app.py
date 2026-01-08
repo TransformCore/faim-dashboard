@@ -25,14 +25,11 @@ app.layout = html.Div([
     Input("navigation-tabs", "value"),
     State('session-input-data', 'data')
 )
-def render_main_content(tab, data):
-    if data:
-        print(data)
-
+def render_main_content(tab, session_data):
     if tab == "data-entry":
-        return data_entry.layout()
+        return data_entry.layout(session_data)
     elif tab == "exposure-results":
-        return results.layout()
+        return results.layout(session_data)
 
     raise ValueError("Invalid tab")
 
