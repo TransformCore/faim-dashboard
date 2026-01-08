@@ -27,4 +27,4 @@ USER dashuser
 EXPOSE 8050
 
 # Start the application
-CMD ["gunicorn", "app:app", "--bind=0.0.0.0:8050"]
+CMD ["gunicorn", "app:server", "--bind=0.0.0.0:8050"]

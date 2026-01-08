@@ -1,7 +1,10 @@
-from dash import html, dcc, Output, Input, State
+from dash import html, dcc, Dash, Output, Input, State
 
-from server import app
 from pages import data_entry, results
+
+
+app = Dash(__name__, suppress_callback_exceptions=True)
+server = app.server
 
 app.layout = html.Div([
     dcc.Location(id="url"),
